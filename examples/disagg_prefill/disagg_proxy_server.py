@@ -329,10 +329,21 @@ async def handle_completions(request: Request):
 async def handle_chat_completions(request: Request):
     global counter, stats_calculator
     counter += 1
-
+    req_id = str(counter)
     st = time.time()
     try:
         req_data = await request.json()
+        decode_client = round_robin_pick_client(app.state.decode_clients, counter)
+        disagg_spec = {
+            "req_id": req_id,
+            "receiver_host": decode_client.host,
+            "receiver_init_port": decode_client.init_port,
+            "receiver_alloc_port": decode_client.alloc_port,
+        }
+        req_data["kv_transfer_params"] = {
+            "ret_first_tok": True,
+            "disagg_spec": disagg_spec,
+        }
 
         org_max_tokens = req_data["max_tokens"]
         req_data["max_tokens"] = 1
@@ -343,8 +354,8 @@ async def handle_chat_completions(request: Request):
             req_data["max_completion_tokens"] = 1
 
         # Send request to prefill service, ignore the response
-        client = round_robin_pick_client(app.state.prefill_clients, counter)
-        await send_request_to_service(client, "/v1/chat/completions", req_data)
+        prefill_client = round_robin_pick_client(app.state.prefill_clients, counter)
+        await send_request_to_service(prefill_client.client, "/v1/chat/completions", req_data)
 
         et = time.time()
         stats_calculator.add(et - st)
@@ -354,23 +365,20 @@ async def handle_chat_completions(request: Request):
             req_data["max_completion_tokens"] = org_max_completion_tokens
 
         # Stream response from decode service
+        decode_client = round_robin_pick_client(app.state.decode_clients, counter)
         async def generate_stream():
             async for chunk in stream_service_response(
-                app.state.decode_client, "/v1/chat/completions", req_data
+                decode_client.client, "/v1/chat/completions", req_data
             ):
                 yield chunk
 
         return StreamingResponse(generate_stream(), media_type="application/json")
 
     except Exception as e:
-        # Standard
         import sys
         import traceback
-
         exc_info = sys.exc_info()
-        print(
-            "Error occurred in disagg prefill proxy server  - chat completions endpoint"
-        )
+        print("Error occurred in disagg prefill proxy server  - chat completions endpoint")
         print(e)
         print("".join(traceback.format_exception(*exc_info)))
         raise

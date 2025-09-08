@@ -100,7 +100,7 @@ wait_for_server() {
 
 
 main() {
-    check_hf_token
+    # check_hf_token
     check_num_gpus
     ensure_python_library_installed lmcache
     ensure_python_library_installed nixl

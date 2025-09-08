@@ -11,8 +11,8 @@ if [[ $# -lt 1 ]]; then
 fi
 
 if [[ $# -eq 1 ]]; then
-    echo "Using default model: meta-llama/Llama-3.1-8B-Instruct"
-    MODEL="meta-llama/Llama-3.1-8B-Instruct"
+    echo "Using default model: /opt/nas/p/zhangwei/model-hub/quan-qwen/Qwen3-30B-A3B-GPTQ-Int4"
+    MODEL="/opt/nas/p/zhangwei/model-hub/quan-qwen/Qwen3-30B-A3B-GPTQ-Int4"
 else
     echo "Using model: $2"
     MODEL=$2
@@ -31,6 +31,7 @@ if [[ $1 == "prefiller" ]]; then
         vllm serve $MODEL \
         --port 7100 \
         --disable-log-requests \
+        --served-model-name  qwen \
         --enforce-eager \
         --no-enable-prefix-caching \
         --kv-transfer-config \
@@ -52,6 +53,7 @@ elif [[ $1 == "decoder" ]]; then
         --port 7200 \
         --disable-log-requests \
         --enforce-eager \
+        --served-model-name  qwen \
         --no-enable-prefix-caching \
         --kv-transfer-config \
         '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_consumer","kv_connector_extra_config": {"discard_partial_chunks": false, "lmcache_rpc_port": "consumer1", "skip_last_n_tokens": 1}}'
